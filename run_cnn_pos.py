@@ -5,19 +5,18 @@ import argparse
 import logging
 import numpy as np
 import pandas as pd
-import sys
 import tensorflow as tf
-import tensorflow.keras.backend as K
 
 from datetime import datetime
 from gensim.models import KeyedVectors
 from os import path
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.layers import Concatenate, Dense, Dropout, Embedding, Flatten, Input, Lambda
+from tensorflow.keras import regularizers
+from tensorflow.keras.layers import Concatenate, Conv1D, Dense,\
+    GlobalMaxPooling1D, Embedding, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-from tensorflow.keras import regularizers
 from tensorflow.keras.utils import to_categorical
 
 np.random.seed(42)
@@ -26,7 +25,7 @@ tf.compat.v1.random.set_random_seed(42)
 logger = logging.getLogger(__name__)
 
 
-def build_mlp(config, vocab_size, vector_size, embedding_matrix, output_size):
+def build_cnn(config, vocab_size, vector_size, embedding_matrix, output_size):
     embedding_layer = Embedding(vocab_size, vector_size,
                                 weights=[embedding_matrix],
                                 input_length=config.max_sequence_len,
@@ -35,25 +34,22 @@ def build_mlp(config, vocab_size, vector_size, embedding_matrix, output_size):
     sequence_input = Input(shape=(config.max_sequence_len,))
     embedded_sequences = embedding_layer(sequence_input)
 
-    if config.combination == "concatenate":
-        layer = Flatten()(embedded_sequences)
-    elif config.combination == "mean":
-        layer = Lambda(lambda xin: K.mean(xin, axis=1))(embedded_sequences)
-    elif config.combination == "sum":
-        layer = Lambda(lambda xin: K.sum(xin, axis=1))(embedded_sequences)
-    elif config.combination == "min":
-        layer = Lambda(lambda xin: K.min(xin, axis=1))(embedded_sequences)
-    elif config.combination == "max":
-        layer = Lambda(lambda xin: K.max(xin, axis=1))(embedded_sequences)
-    elif config.combination == "max_min":
-        layer_max = Lambda(lambda xin: K.max(xin, axis=1))(embedded_sequences)
-        layer_min = Lambda(lambda xin: K.min(xin, axis=1))(embedded_sequences)
-        layer = Concatenate()([layer_max, layer_min])
+    layers = []
+    for filter_size in config.filters:
+        layer = Conv1D(
+            config.filter_count,
+            filter_size,
+            activation=config.activation,
+            padding=config.padding,
+            # kernel_regularizer=regularizers.l2(config.reg_lambda)
+        )(embedded_sequences)
+        layer = GlobalMaxPooling1D()(layer)
+        layers.append(layer)
+
+    layer = Concatenate()(layers)
 
     for _ in range(config.network_size):
-        layer = Dense(config.layer_size, activation=config.activation,
-                      kernel_regularizer=regularizers.l2(config.reg_lambda))(layer)
-        layer = Dropout(config.dropout_ratio)(layer)
+        layer = Dense(config.layer_size, activation=config.activation)(layer)
 
     preds = Dense(output_size, activation="softmax")(layer)
     model = Model(sequence_input, preds)
@@ -162,6 +158,10 @@ def main(config):
     train_df["target"] = lbl_enc.transform(train_df["category"])
     dev_df["target"] = lbl_enc.transform(dev_df["category"])
 
+    train_df = train_df[["words", "target"]]
+    dev_df = dev_df[["words", "target"]]
+    test_df = test_df[["id", "words"]]
+
     logger.info("Turning words to sequence of indices")
     word_index = words_to_idx(pd.concat([train_df, dev_df, test_df], sort=False)["words"], w2v)
     train_word_sequences = sequence_padding(train_df, word_index, config.max_sequence_len)
@@ -173,14 +173,22 @@ def main(config):
         train_df["target"].tolist(),
         num_classes=lbl_enc.classes_.shape[0]
     )
+    dev_target = to_categorical(
+        dev_df["target"].tolist(),
+        num_classes=lbl_enc.classes_.shape[0]
+    )
 
     logger.info("Setting up embedding matrix")
     embedding_matrix = get_embedding_matrix(word_index, w2v)
 
     logger.info("Building network")
-    model = build_mlp(config, len(word_index), w2v.vector_size,
+    model = build_cnn(config, len(word_index), w2v.vector_size,
                       embedding_matrix, lbl_enc.classes_.shape[0])
     model.summary(print_fn=logger.info)
+
+    logger.info("Cleaning up data to save memory")
+    del train_df
+    del w2v
 
     logger.info("Compiling model")
     model.compile(loss="categorical_crossentropy", optimizer=config.optimizer, metrics=["accuracy"])
@@ -188,15 +196,16 @@ def main(config):
     logger.info("Fitting model")
     model.fit(
         train_word_sequences, train_target,
+        validation_data=(dev_word_sequences, dev_target),
         batch_size=config.batch_size, epochs=config.epochs,
-        verbose=1, validation_split=0
+        verbose=1, validation_split=0, validation_freq=5
     )
 
     logger.info("Model finished trainig. Getting final predictions.")
-    logger.info("Getting training data predictions")
-    train_df["predictions"] = model.predict(
-        train_word_sequences, batch_size=config.batch_size, verbose=0
-    ).argmax(axis=1)
+    # logger.info("Getting training data predictions")
+    # train_df["predictions"] = model.predict(
+    #     train_word_sequences, batch_size=config.batch_size, verbose=0
+    # ).argmax(axis=1)
 
     logger.info("Getting dev data predictions")
     dev_df["predictions"] = model.predict(
@@ -208,8 +217,8 @@ def main(config):
         test_word_sequences, batch_size=config.batch_size, verbose=0
     ).argmax(axis=1)
 
-    train_acc = balanced_accuracy_score(train_df["target"], train_df["predictions"])
-    logger.info(f"Balanced Accuracy Score for TRAINING: {train_acc}")
+    # train_acc = balanced_accuracy_score(train_df["target"], train_df["predictions"])
+    # logger.info(f"Balanced Accuracy Score for TRAINING: {train_acc}")
 
     dev_acc = balanced_accuracy_score(dev_df["target"], dev_df["predictions"])
     logger.info(f"Balanced Accuracy Score for VALIDATION (TOTAL): {dev_acc}")
@@ -243,23 +252,21 @@ if __name__ == "__main__":
     parser.add_argument("language")
     parser.add_argument("word_vectors")
     parser.add_argument("output")
-    parser.add_argument("--combination", "-c", default="concatenate")
-    parser.add_argument("--max-sequence-len", "-m", default=15, type=int)
-    parser.add_argument("--layer-size", "-l", default=1024, type=int)
-    parser.add_argument("--network-size", "-n", default=3, type=int)
-    parser.add_argument("--dropout-ratio", "-d", default=0.3, type=float)
     parser.add_argument("--activation", "-a", default="relu")
-    parser.add_argument("--reg-lambda", "-r", default=0.01, type=float)
+    parser.add_argument("--batch-size", "-b", default=1024, type=int)
+    parser.add_argument("--epochs", "-e", default=10, type=int)
+    parser.add_argument("--filters", "-f", default=[2, 3, 5], type=int, nargs="+")
+    parser.add_argument("--filter-count", "-c", default=128, type=int)
+    parser.add_argument("--layer-size", "-l", default=1024, type=int)
+    parser.add_argument("--max-sequence-len", "-m", default=15, type=int)
+    parser.add_argument("--network-size", "-n", default=3, type=int)
+    parser.add_argument("--padding", "-p", default="valid")
     parser.add_argument("--optimizer", "-o", default="adam")
     parser.add_argument("--train-unreliable-data", "-t", default=None)
     parser.add_argument("--unreliable-data-size", "-u", default=5, type=float)
-    parser.add_argument("--batch-size", "-b", default=1024, type=int)
-    parser.add_argument("--epochs", "-e", default=10, type=int)
+    # parser.add_argument("--dropout-ratio", "-d", default=0.3, type=float)
+    # parser.add_argument("--reg-lambda", "-r", default=0.01, type=float)
 
     config = parser.parse_args()
-
-    if config.combination not in {"concatenate", "sum", "mean", "max", "min", "max_min"}:
-        print(f"Invalid combination: {config.combination}", file=sys.stderr)
-        sys.exit(1)
 
     main(config)
