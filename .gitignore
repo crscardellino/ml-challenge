@@ -108,3 +108,4 @@ slurm.sh
 results/
 *.out
 *.err
+.*.sw*

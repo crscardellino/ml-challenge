@@ -218,6 +218,7 @@ def main(base_data_dir, language, output, activation, batch_size, drop_columns,
     config_setup += f"FILTER COUNT: {filter_count}\n"
     config_setup += f"MAX SEQUENCE LENGTH: {max_sequence_len}\n"
     config_setup += f"PADDING: {padding}\n"
+    config_setup += f"REG LAMBDA: {reg_lambda}\n"
     config_setup += f"OPTIMIZER: {optimizer}\n"
     config_setup += f"UNRELIABLE SAMPLING: {unreliable_sampling}"
     logger.info(f"Beggining experiments with configuration:\n{config_setup.strip()}")
@@ -232,7 +233,7 @@ def main(base_data_dir, language, output, activation, batch_size, drop_columns,
         datasets[split]["target"] = lbl_enc.transform(datasets[split]["category"])
         datasets[split].drop(["category"], axis=1, inplace=True)
 
-    datasets["dev"]["original_title"] = datasets["dev"]["original_title"]
+    datasets["dev"]["original_title"] = datasets["dev"]["title"]
 
     logger.info("Lowercasing titles")
     datasets = lowercase_titles(datasets)
@@ -323,8 +324,8 @@ def main(base_data_dir, language, output, activation, batch_size, drop_columns,
     ].head(100)
     eyeball_dataset["category"] = lbl_enc.inverse_transform(eyeball_dataset["target"])
     eyeball_dataset["pcategory"] = lbl_enc.inverse_transform(eyeball_dataset["predictions"])
-    eyeball_dataset[["original_title", "title", "category", "pcategory"]].to_csv(
-        path.join(output, f"{experiment}_eyeball.csv", index=False)
+    eyeball_dataset[["original_title", "title", "label_quality", "category", "pcategory"]].to_csv(
+        path.join(output, f"{experiment}_eyeball.csv"), index=False
     )
 
     dev_acc = balanced_accuracy_score(datasets["dev"]["target"], datasets["dev"]["predictions"])
