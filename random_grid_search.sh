@@ -7,15 +7,15 @@ for i in 1 # $(seq 1 5)
 do
     echo "******************* EXPLORING SETTING $i ***************************" >&2
 
-    MAX_SEQUENCE_LEN=(20)
+    MAX_SEQUENCE_LEN=(15)
     rand_max_seq_len=${MAX_SEQUENCE_LEN[$[$RANDOM % ${#MAX_SEQUENCE_LEN[@]}]]}
     echo "Max sequence length $rand_max_seq_len" >&2
 
-    FILTERS=("2 3 4 5 6")
+    FILTERS=("2 3 4 5")
     rand_filters=${FILTERS[$[$RANDOM % ${#FILTERS[@]}]]}
     echo "Filters $rand_filters" >&2
 
-    FILTER_COUNT=(256)
+    FILTER_COUNT=(128)
     rand_filter_count=${FILTER_COUNT[$[$RANDOM % ${#FILTER_COUNT[@]}]]}
     echo "Filter count $rand_filter_count" >&2
 
@@ -37,8 +37,8 @@ do
             $EXPERIMENTS_DIR \
             -a relu \
             -b 2048 \
-            -d split language words pos \
-            -e 25 \
+            -d split language pos \
+            -e 10 \
             -f $rand_filters \
             -c $rand_filter_count \
             -s \
@@ -46,6 +46,6 @@ do
             -o nadam \
             -p $rand_padding \
             -r $rand_reg \
-            -u 0.35
+            -u 0.5
     done
 done

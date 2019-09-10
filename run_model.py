@@ -84,9 +84,7 @@ def lowercase_titles(datasets):
 
 def tokenization(datasets, language):
     for split in tqdm(datasets, file=sys.stdout):
-        datasets[split]["title"] = datasets[split]["title"].apply(
-            lambda title: word_tokenize(title, language=language)
-        )
+        datasets[split]["title"] = datasets[split]["words"]
     return datasets
 
 
@@ -111,14 +109,10 @@ def word_with_vector(word, w2v, stemmer):
         return word
     elif word.capitalize() in w2v:
         return word.capitalize()
-    elif word.upper() in w2v:
-        return word.upper()
     elif unidecode(word) in w2v:
         return unidecode(word)
     elif unidecode(word.capitalize()) in w2v:
         return unidecode(word.capitalize())
-    elif unidecode(word.upper()) in w2v:
-        return unidecode(word.upper())
     elif stemmer.stem(word) in w2v:
         return stemmer.stem(word)
     elif re.search(r"\d+", word):
@@ -183,8 +177,7 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
             filter_count,
             filter_size,
             activation=activation,
-            padding=padding,
-            kernel_regularizer=l2(reg_lambda) if reg_lambda > 0 else None
+            padding=padding
         )(word_embedded_sequences)
         layer = GlobalMaxPooling1D()(layer)
         layers.append(layer)
@@ -308,7 +301,7 @@ def main(base_data_dir, language, output, activation, batch_size, drop_columns,
         train_word_sequences, train_target,
         validation_data=(dev_word_sequences, dev_target),
         batch_size=batch_size, epochs=epochs,
-        verbose=1, validation_split=0, validation_freq=5
+        verbose=1, validation_split=0, validation_freq=1
     )
 
     logger.info("Model finished trainig. Getting final predictions.")
@@ -357,7 +350,7 @@ if __name__ == "__main__":
     parser.add_argument("--activation", "-a", default="relu")
     parser.add_argument("--batch-size", "-b", default=2048, type=int)
     parser.add_argument("--drop-columns", "-d",
-                        default=["split", "language", "words", "pos"],
+                        default=["split", "language", "pos"],
                         nargs="+")
     parser.add_argument("--epochs", "-e", default=20, type=int)
     parser.add_argument("--filters", "-f", default=[2, 3, 4, 5, 6], type=int, nargs="+")
