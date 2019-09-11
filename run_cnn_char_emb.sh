@@ -7,7 +7,7 @@ for language in spanish portuguese
 do
     echo "Running for $language" >&2
 
-    python run_model.py \
+    python run_cnn_char_emb.py \
         $DATA_DIR \
         $language \
         $EXPERIMENTS_DIR \
