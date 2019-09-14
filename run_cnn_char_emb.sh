@@ -14,14 +14,14 @@ do
         --activation relu \
         --batch-size 4096 \
         --char-filter-count 64 \
-        --char-filters-len 3 4 \
+        --char-filters-len 2 3 4 \
         --char-max-sequence-len 10 \
         --char-vector-size 32 \
         --drop-columns language pos split \
-        --epochs 10 \
+        --epochs 20 \
         --optimizer nadam \
         --padding same \
-        --unreliable-sampling 0.5 \
+        --unreliable-sampling 1 \
         --word-filter-count 128 \
         --word-filters-len 2 3 4 5 \
         --word-max-sequence-len 15

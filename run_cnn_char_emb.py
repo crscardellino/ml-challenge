@@ -359,6 +359,11 @@ def main(base_data_dir, language, output, activation, batch_size,
         verbose=1, validation_split=0, validation_freq=1
     )
 
+    logger.info("Cleaning up data to save memory")
+    del train_word_sequences
+    del train_char_sequences
+    del train_target
+
     logger.info("Model finished trainig. Getting final predictions.")
 
     logger.info("Getting dev data predictions")
