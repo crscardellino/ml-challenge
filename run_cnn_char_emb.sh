@@ -3,12 +3,12 @@
 DATA_DIR="../data"
 EXPERIMENTS_DIR="../experiments"
 
-for language in spanish portuguese
+for usize in 0.75 1
 do
-    echo "Running for $language" >&2
-
-    for usize in 0.5 0.75 1
+    for language in spanish portuguese
     do
+        echo "Running for $language" >&2
+
         for epochs in 5 10
         do
             python run_cnn_char_emb.py \
