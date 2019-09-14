@@ -301,7 +301,7 @@ def main(base_data_dir, language, output, activation, batch_size,
         datasets["train"]["normalized_tokens"], word_index, word_max_sequence_len
     )
     dev_word_sequences = word_sequence_padding(
-        datasets["dev"]["title"], word_index, word_max_sequence_len
+        datasets["dev"]["normalized_tokens"], word_index, word_max_sequence_len
     )
 
     logger.info("Padding char sequences")
@@ -397,10 +397,10 @@ def main(base_data_dir, language, output, activation, batch_size,
 
     logger.info("Getting test data predictions")
     test_word_sequences = word_sequence_padding(
-        datasets["test"]["title"], word_index, word_max_sequence_len
+        datasets["test"]["normalized_tokens"], word_index, word_max_sequence_len
     )
     test_char_sequences = char_sequence_padding(
-        datasets["test"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["test"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
     )
     datasets["test"]["predictions"] = model.predict(
         (test_word_sequences, test_char_sequences), batch_size=batch_size, verbose=0
