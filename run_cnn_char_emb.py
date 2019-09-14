@@ -436,7 +436,7 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", "-o", default="nadam")
     parser.add_argument("--padding", "-p", default="same")
     parser.add_argument("--unreliable-sampling", "-u", default=0.5, type=float)
-    parser.add_argument("--use-normalize-char-tokens", "-t", action="store_true")
+    parser.add_argument("--use-normalized-char-tokens", "-t", action="store_true")
     parser.add_argument("--word-filter-count", "-w", default=128, type=int)
     parser.add_argument("--word-filters-len", "-x", default=[2, 3, 4, 5], type=int, nargs="+")
     parser.add_argument("--word-max-sequence-len", "-y", default=15, type=int)
