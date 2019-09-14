@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import gc
 import logging
 import numpy as np
 import pandas as pd
@@ -76,17 +77,17 @@ def label_encoder(*dfs):
     return lbl_enc
 
 
-def remove_punctuation(datasets, punctuation):
+def remove_punctuation(datasets, punctuation, input_col="title", output_col="title"):
     for split in tqdm(datasets, file=sys.stdout):
-        datasets[split]["title"] = datasets[split]["title"].apply(
+        datasets[split][output_col] = datasets[split][input_col].apply(
             lambda words: [w for w in words if w not in punctuation]
         )
     return datasets
 
 
-def remove_stopwords(datasets, stopwords):
+def remove_stopwords(datasets, stopwords, input_col="title", output_col="title"):
     for split in tqdm(datasets, file=sys.stdout):
-        datasets[split]["title"] = datasets[split]["title"].apply(
+        datasets[split][output_col] = datasets[split][input_col].apply(
             lambda words: [w for w in words if w not in stopwords]
         )
     return datasets
@@ -109,10 +110,10 @@ def word_with_vector(word, w2v, stemmer):
         return "<UNK>"
 
 
-def word_vectorize(datasets, language, w2v):
+def word_vectorize(datasets, language, w2v, input_col="title", output_col="title"):
     stemmer = SnowballStemmer(language)
     for split in tqdm(datasets, file=sys.stdout):
-        datasets[split]["title"] = datasets[split]["title"].apply(
+        datasets[split][output_col] = datasets[split][input_col].apply(
             lambda words: [word_with_vector(w, w2v, stemmer) for w in words]
         )
     return datasets
@@ -197,7 +198,6 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
             Conv1D(
                 char_filter_count,
                 filter_len,
-                activation=activation,  # TODO: No activation?
                 padding=padding
             )
         )(char_embedded_sequences)
@@ -225,7 +225,7 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
 def main(base_data_dir, language, output, activation, batch_size,
          char_filter_count, char_filters_len, char_max_sequence_len, char_vector_size,
          drop_columns, epochs, keep_punctuation, keep_stopwords,
-         optimizer, padding, unreliable_sampling,
+         optimizer, padding, unreliable_sampling, use_normalized_char_tokens,
          word_filter_count, word_filters_len, word_max_sequence_len):
     # Setup logger
     experiment = datetime.now().strftime("%Y-%m-%d_%H.%M.%S") + "_" + language
@@ -274,24 +274,31 @@ def main(base_data_dir, language, output, activation, batch_size,
         datasets = remove_stopwords(datasets, set(stopwords.words(language)))
 
     logger.info("Vectorizing words")
-    datasets = word_vectorize(datasets, language, w2v)
+    datasets = word_vectorize(datasets, language, w2v, output_col="normalized_tokens")
 
     logger.info("Gathering word to index")
-    word_index = words_to_idx(pd.concat(list(datasets.values()), sort=False)["title"], w2v)
+    word_index = words_to_idx(
+        pd.concat(list(datasets.values()), sort=False)["normalized_tokens"],
+        w2v
+    )
     logger.info(f"Vocab length: {len(word_index)}")
 
     logger.info("Gathering char to index")
+    if use_normalized_char_tokens:
+        char_base_col = "normalized_tokens"
+    else:
+        char_base_col = "title"
     char_index = chars_to_idx(
         pd.concat(
             list(datasets.values()),
             sort=False
-        )["title"].apply(lambda tokens: " ".join(tokens))
+        )[char_base_col].apply(lambda tokens: " ".join(tokens))
     )
     logger.info(f"Char vocab length: {len(char_index)}")
 
     logger.info("Padding word sequences")
     train_word_sequences = word_sequence_padding(
-        datasets["train"]["title"], word_index, word_max_sequence_len
+        datasets["train"]["normalized_tokens"], word_index, word_max_sequence_len
     )
     dev_word_sequences = word_sequence_padding(
         datasets["dev"]["title"], word_index, word_max_sequence_len
@@ -299,10 +306,10 @@ def main(base_data_dir, language, output, activation, batch_size,
 
     logger.info("Padding char sequences")
     train_char_sequences = char_sequence_padding(
-        datasets["train"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["train"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
     )
     dev_char_sequences = char_sequence_padding(
-        datasets["dev"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["dev"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
     )
 
     logger.info("Encoding labels to one-hot")
@@ -339,6 +346,7 @@ def main(base_data_dir, language, output, activation, batch_size,
     logger.info("Cleaning up data to save memory")
     del datasets["train"]
     del w2v
+    gc.collect()
 
     logger.info("Compiling model")
     model.compile(
@@ -363,6 +371,7 @@ def main(base_data_dir, language, output, activation, batch_size,
     del train_word_sequences
     del train_char_sequences
     del train_target
+    gc.collect()
 
     logger.info("Model finished trainig. Getting final predictions.")
 
@@ -377,7 +386,9 @@ def main(base_data_dir, language, output, activation, batch_size,
     ].head(100)
     eyeball_dataset["category"] = lbl_enc.inverse_transform(eyeball_dataset["target"])
     eyeball_dataset["pcategory"] = lbl_enc.inverse_transform(eyeball_dataset["predictions"])
-    eyeball_dataset[["original_title", "title", "label_quality", "category", "pcategory"]].to_csv(
+    eyeball_dataset[
+        ["original_title", "normalized_tokens", "label_quality", "category", "pcategory"]
+    ].to_csv(
         path.join(output, f"{experiment}_eyeball.csv"), index=False
     )
 
@@ -425,6 +436,7 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", "-o", default="nadam")
     parser.add_argument("--padding", "-p", default="same")
     parser.add_argument("--unreliable-sampling", "-u", default=0.5, type=float)
+    parser.add_argument("--use-normalize-char-tokens", "-t", action="store_true")
     parser.add_argument("--word-filter-count", "-w", default=128, type=int)
     parser.add_argument("--word-filters-len", "-x", default=[2, 3, 4, 5], type=int, nargs="+")
     parser.add_argument("--word-max-sequence-len", "-y", default=15, type=int)

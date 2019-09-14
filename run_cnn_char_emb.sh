@@ -18,7 +18,7 @@ do
         --char-max-sequence-len 10 \
         --char-vector-size 32 \
         --drop-columns language pos split \
-        --epochs 20 \
+        --epochs 10 \
         --optimizer nadam \
         --padding same \
         --unreliable-sampling 1 \
