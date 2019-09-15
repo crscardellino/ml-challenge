@@ -18,8 +18,8 @@ from os import path
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from string import punctuation
-from tensorflow.keras.layers import (Concatenate, Conv1D, Dense, Embedding,
-                                     GlobalMaxPooling1D, Input, TimeDistributed)
+from tensorflow.keras.layers import (BatchNormalization, Concatenate, Conv1D, Dense, Dropout,
+                                     Embedding, GlobalMaxPooling1D, Input, TimeDistributed)
 from tensorflow.keras.models import Model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
@@ -171,8 +171,8 @@ def get_embedding_matrix(word_index, w2v):
 def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
                 char_vocab_size, char_vector_size, output_size,
                 word_max_sequence_len, char_max_sequence_len,
-                word_filters_len, word_filter_count,
-                char_filters_len, char_filter_count,
+                word_dropout, word_filters_len, word_filter_count,
+                char_dropout, char_filters_len, char_filter_count,
                 activation="relu", padding="same"):
 
     char_sequence_input = Input(shape=(word_max_sequence_len, char_max_sequence_len))
@@ -185,12 +185,21 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
             embeddings_initializer="truncated_normal",  # TODO: Change this?
             trainable=True
         ))(char_sequence_input)
+    char_embedded_sequences = Dropout(
+        rate=char_dropout,
+        noise_shape=(None, word_max_sequence_len, 1, char_vector_size),
+        seed=42
+    )(char_embedded_sequences)
 
     word_embedding_layer = Embedding(word_vocab_size, word_vector_size,
                                      weights=[word_embedding_matrix],
                                      input_length=word_max_sequence_len,
                                      trainable=False)
     word_embedded_sequences = word_embedding_layer(word_sequence_input)
+    word_embedded_sequences = Dropout(
+        rate=word_dropout,
+        noise_shape=(None, 1, word_vector_size)
+    )(word_embedded_sequences)
 
     char_layers = []
     for filter_len in char_filters_len:
@@ -201,6 +210,7 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
                 padding=padding
             )
         )(char_embedded_sequences)
+        char_layer = BatchNormalization(momentum=0.0)(char_layer)
         char_layers.append(TimeDistributed(GlobalMaxPooling1D())(char_layer))
 
     word_layer = Concatenate()([word_embedded_sequences] + char_layers)
@@ -213,6 +223,7 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
             activation=activation,
             padding=padding
         )(word_layer)
+        layer = BatchNormalization(momentum=0.0)(layer)
         layers.append(GlobalMaxPooling1D()(layer))
 
     layer = Concatenate()(layers)
@@ -223,10 +234,10 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
 
 
 def main(base_data_dir, language, output, activation, batch_size,
-         char_filter_count, char_filters_len, char_max_sequence_len, char_vector_size,
+         char_dropout, char_filter_count, char_filters_len, char_max_sequence_len, char_vector_size,
          drop_columns, epochs, keep_punctuation, keep_stopwords,
          optimizer, padding, unreliable_sampling, use_normalized_char_tokens,
-         word_filter_count, word_filters_len, word_max_sequence_len):
+         word_dropout, word_filter_count, word_filters_len, word_max_sequence_len):
     # Setup logger
     experiment = datetime.now().strftime("%Y-%m-%d_%H.%M.%S") + "_" + language
     logger.setLevel(logging.INFO)
@@ -239,11 +250,13 @@ def main(base_data_dir, language, output, activation, batch_size,
     config_setup = yaml.dump({
         "EXPERIMENT": experiment,
         "LANGUAGE": language,
+        "CHAR DROPOUT": char_dropout,
         "CHAR FILTER COUNT": char_filter_count,
         "CHAR FILTERS LEN": ", ".join(map(str, char_filters_len)),
         "CHAR MAX SEQUENCE LEN": char_max_sequence_len,
         "CHAR VECTOR SIZE": char_vector_size,
         "UNRELIABLE SAMPLING": unreliable_sampling,
+        "WORD DROPOUT": word_dropout,
         "WORD FILTER COUNT": word_filter_count,
         "WORD FILTERS LEN": ", ".join(map(str, word_filters_len)),
         "WORD MAX SEQUENCE LEN": word_max_sequence_len,
@@ -335,8 +348,10 @@ def main(base_data_dir, language, output, activation, batch_size,
         output_size=lbl_enc.classes_.shape[0],
         word_max_sequence_len=word_max_sequence_len,
         char_max_sequence_len=char_max_sequence_len,
+        word_dropout=word_dropout,
         word_filters_len=word_filters_len,
         word_filter_count=word_filter_count,
+        char_dropout=char_dropout,
         char_filters_len=char_filters_len,
         char_filter_count=char_filter_count,
         activation=activation,
@@ -423,6 +438,7 @@ if __name__ == "__main__":
     parser.add_argument("output")
     parser.add_argument("--activation", "-a", default="relu")
     parser.add_argument("--batch-size", "-b", default=4096, type=int)
+    parser.add_argument("--char-dropout", default=0.0, type=float)
     parser.add_argument("--char-filter-count", "-c", default=32, type=int)
     parser.add_argument("--char-filters-len", "-f", default=[3, 4], type=int, nargs="+")
     parser.add_argument("--char-max-sequence-len", "-m", default=10, type=int)
@@ -437,6 +453,7 @@ if __name__ == "__main__":
     parser.add_argument("--padding", "-p", default="same")
     parser.add_argument("--unreliable-sampling", "-u", default=0.5, type=float)
     parser.add_argument("--use-normalized-char-tokens", "-t", action="store_true")
+    parser.add_argument("--word-dropout", default=0.0, type=float)
     parser.add_argument("--word-filter-count", "-w", default=128, type=int)
     parser.add_argument("--word-filters-len", "-x", default=[2, 3, 4, 5], type=int, nargs="+")
     parser.add_argument("--word-max-sequence-len", "-y", default=15, type=int)

@@ -3,32 +3,40 @@
 DATA_DIR="../data"
 EXPERIMENTS_DIR="../experiments"
 
-for usize in 0.75 1
+for usize in 0.5 0.75 1
 do
-    for language in spanish portuguese
+    for epochs in 10 15
     do
-        echo "Running for $language" >&2
-
-        for epochs in 5 10
+        for char_dropout in 0.0 0.5
         do
-            python run_cnn_char_emb.py \
-                $DATA_DIR \
-                $language \
-                $EXPERIMENTS_DIR \
-                --activation relu \
-                --batch-size 4096 \
-                --char-filter-count 64 \
-                --char-filters-len 2 3 4 \
-                --char-max-sequence-len 10 \
-                --char-vector-size 32 \
-                --drop-columns language pos split \
-                --epochs $epochs \
-                --optimizer nadam \
-                --padding same \
-                --unreliable-sampling $usize \
-                --word-filter-count 128 \
-                --word-filters-len 2 3 4 5 \
-                --word-max-sequence-len 15
+            for word_dropout in 0.0 0.5
+            do
+                echo "Running for $language" >&2
+                for language in spanish portuguese
+                do
+                    echo "Running for $language" >&2
+                    python run_cnn_char_emb.py \
+                        $DATA_DIR \
+                        $language \
+                        $EXPERIMENTS_DIR \
+                        --activation relu \
+                        --batch-size 4096 \
+                        --char-dropout $char_dropout \
+                        --char-filter-count 64 \
+                        --char-filters-len 2 3 4 \
+                        --char-max-sequence-len 10 \
+                        --char-vector-size 32 \
+                        --drop-columns language pos split \
+                        --epochs $epochs \
+                        --optimizer nadam \
+                        --padding same \
+                        --unreliable-sampling $usize \
+                        --word-dropout $word_dropout \
+                        --word-filter-count 128 \
+                        --word-filters-len 2 3 4 5 \
+                        --word-max-sequence-len 15
+                done
+            done
         done
     done
 done
