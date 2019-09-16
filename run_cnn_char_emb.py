@@ -18,6 +18,7 @@ from os import path
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from string import punctuation
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import (BatchNormalization, Concatenate, Conv1D, Dense, Dropout,
                                      Embedding, GlobalMaxPooling1D, Input, TimeDistributed)
 from tensorflow.keras.models import Model
@@ -379,7 +380,17 @@ def main(base_data_dir, language, output, activation, batch_size,
             dev_target
         ),
         batch_size=batch_size, epochs=epochs,
-        verbose=1, validation_split=0, validation_freq=1
+        verbose=1, validation_split=0, validation_freq=1,
+        callbacks=[
+            ModelCheckpoint(
+                path.join(output, f"{experiment}_best_model.h5"),
+                monitor="val_accuracy",
+                verbose=1,
+                save_best_only=True,
+                mode='max',
+                period=1
+            )
+        ]
     )
 
     logger.info("Cleaning up data to save memory")

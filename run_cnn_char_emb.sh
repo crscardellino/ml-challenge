@@ -3,13 +3,13 @@
 DATA_DIR="../data"
 EXPERIMENTS_DIR="../experiments"
 
-for usize in 0.5 0.75 1
+for usize in 1 0.75 0.5
 do
-    for epochs in 10 15
+    for epochs in 50
     do
-        for char_dropout in 0.0 0.5
+        for char_dropout in 0.5 0.0
         do
-            for word_dropout in 0.0 0.5
+            for word_dropout in 0.5
             do
                 echo "Running for $language" >&2
                 for language in spanish portuguese
