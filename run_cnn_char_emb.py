@@ -441,6 +441,17 @@ def main(base_data_dir, language, output, activation, batch_size,
     logger.info(f"Saving model to {model_save_path}")
     model.save(model_save_path)
 
+    data_save_path = path.join(output, f"{experiment}_data.npz")
+    logger.info(f"Saving data to {data_save_path}")
+    np.savez_compressed(
+        data_save_path,
+        dev_word_sequences=dev_word_sequences,
+        dev_char_sequences=dev_char_sequences,
+        dev_target=datasets["dev"]["target"].values,
+        test_word_sequences=test_word_sequences,
+        test_char_sequences=test_char_sequences
+    )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
