@@ -325,6 +325,12 @@ def main(base_data_dir, language, output, activation, batch_size,
     dev_char_sequences = char_sequence_padding(
         datasets["dev"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
     )
+    test_word_sequences = word_sequence_padding(
+        datasets["test"]["normalized_tokens"], word_index, word_max_sequence_len
+    )
+    test_char_sequences = char_sequence_padding(
+        datasets["test"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
+    )
 
     logger.info("Encoding labels to one-hot")
     train_target = to_categorical(
@@ -334,6 +340,17 @@ def main(base_data_dir, language, output, activation, batch_size,
     dev_target = to_categorical(
         datasets["dev"]["target"].tolist(),
         num_classes=lbl_enc.classes_.shape[0]
+    )
+
+    data_save_path = path.join(output, f"{experiment}_data.npz")
+    logger.info(f"Saving data to {data_save_path}")
+    np.savez_compressed(
+        data_save_path,
+        dev_word_sequences=dev_word_sequences,
+        dev_char_sequences=dev_char_sequences,
+        dev_target=datasets["dev"]["target"].values,
+        test_word_sequences=test_word_sequences,
+        test_char_sequences=test_char_sequences
     )
 
     logger.info("Getting word embedding matrix")
@@ -362,6 +379,8 @@ def main(base_data_dir, language, output, activation, batch_size,
     logger.info("Cleaning up data to save memory")
     del datasets["train"]
     del w2v
+    del test_word_sequences
+    del test_char_sequences
     gc.collect()
 
     logger.info("Compiling model")
@@ -440,17 +459,6 @@ def main(base_data_dir, language, output, activation, batch_size,
     model_save_path = path.join(output, f"{experiment}_model.h5")
     logger.info(f"Saving model to {model_save_path}")
     model.save(model_save_path)
-
-    data_save_path = path.join(output, f"{experiment}_data.npz")
-    logger.info(f"Saving data to {data_save_path}")
-    np.savez_compressed(
-        data_save_path,
-        dev_word_sequences=dev_word_sequences,
-        dev_char_sequences=dev_char_sequences,
-        dev_target=datasets["dev"]["target"].values,
-        test_word_sequences=test_word_sequences,
-        test_char_sequences=test_char_sequences
-    )
 
 
 if __name__ == "__main__":
