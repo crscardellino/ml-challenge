@@ -199,7 +199,8 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
     word_embedded_sequences = word_embedding_layer(word_sequence_input)
     word_embedded_sequences = Dropout(
         rate=word_dropout,
-        noise_shape=(None, 1, word_vector_size)
+        noise_shape=(None, 1, word_vector_size),
+        seed=42
     )(word_embedded_sequences)
 
     char_layers = []
@@ -211,6 +212,13 @@ def build_model(word_vocab_size, word_vector_size, word_embedding_matrix,
                 padding=padding
             )
         )(char_embedded_sequences)
+        char_layer = TimeDistributed(
+            Conv1D(
+                char_filter_count,
+                filter_len,
+                padding=padding
+            )
+        )(char_layer)
         char_layer = BatchNormalization(momentum=0.0)(char_layer)
         char_layers.append(TimeDistributed(GlobalMaxPooling1D())(char_layer))
 
