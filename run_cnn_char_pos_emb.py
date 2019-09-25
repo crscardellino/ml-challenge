@@ -374,7 +374,7 @@ def main(base_data_dir, language, output, activation, batch_size,
 
     logger.info("Gathering pos to index")
     pos_tag_index = pos_tags_to_idx(pd.concat(list(datasets.values()), sort=False)["pos"])
-    print(f"Pos TAG length: {len(pos_tag_index)}")
+    logger.info(f"PoS TAG length: {len(pos_tag_index)}")
 
     logger.info("Padding word sequences")
     train_word_sequences = word_sequence_padding(
