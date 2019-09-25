@@ -28,7 +28,7 @@ do
                             --char-filters-len 2 3 4 \
                             --char-max-sequence-len 10 \
                             --char-vector-size 32 \
-                            --drop-columns language pos split \
+                            --drop-columns language split \
                             --epochs $epochs \
                             --optimizer nadam \
                             --padding same \
