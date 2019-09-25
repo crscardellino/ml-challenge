@@ -572,7 +572,7 @@ if __name__ == "__main__":
     parser.add_argument("--keep-stopwords", "-s", action="store_true")
     parser.add_argument("--optimizer", "-o", default="nadam")
     parser.add_argument("--padding", "-p", default="same")
-    parser.add_argument("--pos-tag-dropout", "-q", default=0.2, type=int)
+    parser.add_argument("--pos-tag-dropout", "-q", default=0.2, type=float)
     parser.add_argument("--pos-tag-vector-size", "-r", default=4, type=int)
     parser.add_argument("--unreliable-sampling", "-u", default=0.5, type=float)
     parser.add_argument("--use-normalized-char-tokens", "-t", action="store_true")
