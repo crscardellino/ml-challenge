@@ -273,38 +273,34 @@ def main(base_data_dir, language, output, activation, batch_size,
     logger.info(f"Vocab length: {len(word_index)}")
 
     logger.info("Gathering char to index")
-    if use_normalized_char_tokens:
-        char_base_col = "normalized_tokens"
-    else:
-        char_base_col = "title"
     char_index = chars_to_idx(
         pd.concat(
             list(datasets.values()),
             sort=False
-        )[char_base_col].apply(lambda tokens: " ".join(tokens))
+        )["title"].apply(lambda tokens: " ".join(tokens))
     )
     logger.info(f"Char vocab length: {len(char_index)}")
 
     logger.info("Padding word sequences")
     train_word_sequences = word_sequence_padding(
-        datasets["train"]["normalized_tokens"], word_index, word_max_sequence_len
+        datasets["train"]["title"], word_index, word_max_sequence_len
     )
     dev_word_sequences = word_sequence_padding(
-        datasets["dev"]["normalized_tokens"], word_index, word_max_sequence_len
+        datasets["dev"]["title"], word_index, word_max_sequence_len
     )
 
     logger.info("Padding char sequences")
     train_char_sequences = char_sequence_padding(
-        datasets["train"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["train"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
     )
     dev_char_sequences = char_sequence_padding(
-        datasets["dev"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["dev"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
     )
     test_word_sequences = word_sequence_padding(
-        datasets["test"]["normalized_tokens"], word_index, word_max_sequence_len
+        datasets["test"]["title"], word_index, word_max_sequence_len
     )
     test_char_sequences = char_sequence_padding(
-        datasets["test"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["test"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
     )
 
     logger.info("Encoding labels to one-hot")
@@ -407,7 +403,7 @@ def main(base_data_dir, language, output, activation, batch_size,
     eyeball_dataset["category"] = lbl_enc.inverse_transform(eyeball_dataset["target"])
     eyeball_dataset["pcategory"] = lbl_enc.inverse_transform(eyeball_dataset["predictions"])
     eyeball_dataset[
-        ["original_title", "normalized_tokens", "label_quality", "category", "pcategory"]
+        ["original_title", "title", "label_quality", "category", "pcategory"]
     ].to_csv(
         path.join(output, f"{experiment}_eyeball.csv"), index=False
     )
@@ -417,10 +413,10 @@ def main(base_data_dir, language, output, activation, batch_size,
 
     logger.info("Getting test data predictions")
     test_word_sequences = word_sequence_padding(
-        datasets["test"]["normalized_tokens"], word_index, word_max_sequence_len
+        datasets["test"]["title"], word_index, word_max_sequence_len
     )
     test_char_sequences = char_sequence_padding(
-        datasets["test"][char_base_col], char_index, char_max_sequence_len, word_max_sequence_len
+        datasets["test"]["title"], char_index, char_max_sequence_len, word_max_sequence_len
     )
     datasets["test"]["predictions"] = model.predict(
         (test_word_sequences, test_char_sequences), batch_size=batch_size, verbose=0
