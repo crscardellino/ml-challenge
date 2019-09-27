@@ -131,9 +131,9 @@ def get_embedding_matrix(word_index, w2v):
     embedding_matrix = np.zeros((len(word_index), w2v.vector_size))
 
     for word, i in word_index.items():
-        if word in w2v and word not in {"<NULL>", "<UNK>", "<NUM>"}:
+        if word in w2v and word not in {"<NULL>", "<UNK>"}:
             embedding_matrix[i] = w2v[word]
-        elif word == "<UNK>" or word == "<NUM>":
+        elif word == "<UNK>":
             embedding_matrix[i] = np.random.normal(size=(w2v.vector_size,))
 
     return embedding_matrix
