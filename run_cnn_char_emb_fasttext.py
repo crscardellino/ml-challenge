@@ -92,7 +92,7 @@ def remove_stopwords(datasets, stopwords, input_col="title", output_col="title")
 
 
 def words_to_idx(all_words, min_words=10):
-    word_index = Counter([word for words in all_words for word in words])
+    word_index = Counter([word for words in all_words for word in words if len(word) >= 3])
     word_index = {w for w, c in word_index.items() if c >= min_words}
     word_index = {word: idx for idx, word in enumerate(sorted(word_index), start=1)}
     word_index["<NULL>"] = 0
